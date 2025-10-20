@@ -1,86 +1,68 @@
 import { Injectable } from '@nestjs/common';
-import { User, UserDocument } from 'src/schemas/user.schema';
-import { CreateUserDTO, UserSigninDTO } from './dto/create-user.dto';
 import { Model } from 'mongoose';
+import { User, UserDocumnet, UserSchema } from 'src/schemas/userSchema';
 import { InjectModel } from '@nestjs/mongoose';
-import { JwtService } from '@nestjs/jwt';
+import { CreateUserDto, SignUserDto } from './UserDto/UserDto';
+import { JwtFunction } from 'src/JWT/jwt.function';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private jwtService: JwtService
-  ) {}
+    constructor(@InjectModel(User.name) private userModel: Model<UserDocumnet>,
+    private jwtFunction: JwtFunction
+){}
 
-  async create(createUserDto: CreateUserDTO): Promise<User | string | {succed : Boolean , message: String , data?: any} > {
-    const { firstname, lastname, email, password } = createUserDto;
+    async signUpUser(user: CreateUserDto){
+        const { name, email, password} = user;
 
-    if (!firstname || !lastname || !email || !password) {
-      return 'All Fields Are Required';
-    }
-    if(password.length <6 ){
-      return 'Password Should be More Than 6 Characters'
-    }
-    try {
-      const isUserExist = await this.userModel.findOne({email});
-      if(isUserExist){
-        return ({succed : false , message: "This Is Already In Use So Go And Signin"})
-      }
-      else {
-      const newUser = new this.userModel(createUserDto);
-      await newUser.save();
-      return newUser;
-      }
-    } catch (error) {
-      return `Error: ${error.message}`;
-    }
-  }
-  
-  async findAll(): Promise<User[] | String>{
-    try{
-      const users = await this.userModel.find()
-      if(!users.length){
-        return "There Is No User Yet"
-      }
-      return users
-    }
-    catch(err){
-      return err
-    }
-  }
-
-  async signinUser(user: UserSigninDTO): Promise<any>{
-    if(!user || !user.email || !user.password){
-      return "All Fields Are Required";
-    }
-    try{
-      const isUserExist = await this.userModel.findOne({email: user.email})
-      if(!isUserExist){
-        return "This User Is Not Exist Go And SignUp"
-      }
-      else {
-        let match: boolean = false ;
-
-        if(user.password === isUserExist.password){
-          match = true ;
-          console.log(match);
+        if(!email || !password || !name){
+            return { success: false, message: "All Fields Are Required"};
         }
-        if(match){
-          console.log("The match os true")
-            const token = this.jwtService.sign({ id: isUserExist._id, email: isUserExist.email });
-            console.log("Generated Token:", token);
-             return { token }
-
-          // console.log(token, match);
-          }
-        else {
-          return "Maybe The Password Or Email Is Not Vaild";
+        if(password.length < 6){
+            return { success: false, message: "The Password Must Be At Least 6 Numbers"}
         }
-      }
-    }
-    catch(err){
-      return err
-    }
-  }
+        try{
+            const userExist: User | null = await this.userModel.findOne({email});
+            if(userExist?.email){
+                return { success: false, message: "This Email Is Already In Use. GO And Signin "}
+            }
 
+            const newUser: User = await this.userModel.create({ name, email, password})
+
+            return { success: true, message: "The User Created Correctly", user: newUser}
+        }
+        catch(err){
+            return {success: false, error: true, err}
+        }
+    }
+
+    async signInUser(user: SignUserDto){
+        const { email, password} = user;
+
+        if(!email || !password){
+            return { success: false, message: "All Fields Are Required"}
+        }
+
+        try {
+            const userExisit: User | null | any  = await this.userModel.findOne({email})
+
+            if(!userExisit?.email){
+                return { success: false, messgae: "This User Is Not Exist. Go And SignUp(Create Account)"}
+            }
+            
+            let match: boolean = false;
+
+            if(userExisit.password === password) match = true;
+
+            if(match){
+                 const token = this.jwtFunction.createToken({ id: userExisit._id, name: userExisit.email })
+                return { success: true, message: "The User LoggedIn Suceessfully", token}
+            }
+            else {
+                return { success: false, message: "The Password Is not Correct Try Another One"}
+            }
+        }
+        catch(err){
+            return {success: false, error: true, err, message: "We Have some rror here"}
+        }
+    }
 }

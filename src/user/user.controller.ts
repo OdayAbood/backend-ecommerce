@@ -1,19 +1,42 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req } from '@nestjs/common';
+import { CreateUserDto, SignUserDto } from './UserDto/UserDto';
 import { UserService } from './user.service';
-import { CreateUserDTO, UserSigninDTO } from './dto/create-user.dto';
+import type { Response, Request } from 'express';
+
+
 @Controller('user')
 export class UserController {
-    constructor(private readonly userService: UserService){}
-    @Post()
-    create(@Body() user:CreateUserDTO){
-        return this.userService.create(user);
+    constructor(private userService: UserService){}
+
+    @Post('/create-account')
+    async signUpUser(@Body() user: CreateUserDto, @Res() res: Response){
+        const result = await this.userService.signUpUser(user);
+
+        if(!result.success){
+            if(result?.error){
+                return res.status(401).json(result);
+            }
+            return res.status(400).json(result);
+        }
+        return res.status(200).json(result);
     }
-    @Get()
-    findAll(){
-        return this.userService.findAll()
-    }
-    @Post('signin')
-    singinUser(@Body() user:UserSigninDTO){
-        return this.userService.signinUser(user);
+
+    @Post('/register')
+    async signInUser(@Body() user: SignUserDto, @Res({passthrough: true}) res: Response, @Req() req: Request){
+        const result = await this.userService.signInUser(user);
+
+        if(!result.success){
+            if(result.error){
+                return res.status(400).json({result});
+            }
+            return res.status(401).json({result});
+        }
+     
+        if(result.success){
+            res.cookie("jwt", result.token, {maxAge: 3600000});
+           
+        }
+
+        return res.status(200).json({result});
     }
 }
