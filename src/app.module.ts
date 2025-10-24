@@ -21,7 +21,7 @@ import { FundModule } from './fund/fund.module';
   imports: [UserModule,ConfigModule.forRoot({
          isGlobal: true,
          envFilePath: ".env"
-      }) ,MongooseModule.forRoot(`mongodb://localhost:27017/ecommerceStore`), JwtModule.register({
+      }) ,MongooseModule.forRoot(`${process.env.MONGODB_URI}`), JwtModule.register({
     secret: process.env.SECRET_JWT_TOKEN ,
     signOptions: {expiresIn: "1h"}
   }), ProductModule, OrderModule, CardModule, FundModule, ],
